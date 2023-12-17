@@ -71,7 +71,8 @@ def order_completed(order: Order):
     key=order.product_id
     req=requests.get('http://localhost:4000/products/{}'.format(key)).json()
     if req['quantity']>order.quantity:
-        
-        
+        order.status='completed'
+        order.save()
+    return order
 
 
