@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from redis_om import HashModel, get_redis_connection
+from fastapi.background import BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 import os
@@ -8,9 +9,9 @@ import time
 app=FastAPI()
 
 redis=get_redis_connection(
-    host="127.0.0.1",
-    port=8000,
-    password='raghib',
+    host="redis-10307.c295.ap-southeast-1-1.ec2.cloud.redislabs.com",
+    port=10307,
+    password='oDBhSIY23y52DPL0o9HPiK3mu3HECL80',
     decode_responses=True,
 )
 
@@ -53,26 +54,35 @@ def all():
 
 
 @app.post('/orders')
-async def create(request: Request):
+async def create(request: Request, background_tasks: BackgroundTasks):
     body= await request.json()
 
 
-    req = requests.get('http://localhost:4000/products/{}'.format(body["id"]))
+    req = requests.get('http://localhost:3000/products/{}'.format(body["id"]))
     product=req.json()
-    order=Order(product_id=body['id'],price=product['price'],fee=0.20*product['price'],total=product['price']*1.2,quantity=body['quantity'],status='pending')
+    order=Order(
+        product_id=body['id'],
+        price=product['price'],
+        fee=0.20*product['price'],
+        total=product['price']*1.2,
+        quantity=body['quantity'],
+        status='pending'
+        )
     order.save()
-    await order_completed(order)
+    background_tasks.add_task(order_completed, order)
     return order
 
 
 
+@app.get('/orders/{pk}')
+def get_order(pk :str):
+    return Order.get(pk)
+
+
 def order_completed(order: Order):
-    time.sleep(3)
-    key=order.product_id
-    req=requests.get('http://localhost:4000/products/{}'.format(key)).json()
-    if req['quantity']>order.quantity:
-        order.status='completed'
-        order.save()
+    order.status='completed'
+    order.save()
+    redis.xadd('order_completed', order.dict(),'*')
     return order
 
 

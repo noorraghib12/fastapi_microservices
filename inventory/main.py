@@ -65,4 +65,14 @@ def get(pk: str):
 def delete_product(pk: str):
     return Product.delete(pk)
     
+
+@app.put("/products/{pk}")
+def update_(pk: str, up_dict: dict):
+    product=Product.get(pk)
+    for i in up_dict:
+        if 'pk' not in i:
+            product.__dict__[i]=up_dict[i] 
+    return product.save()
+        
+        
     
